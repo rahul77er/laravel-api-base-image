@@ -1,67 +1,21 @@
-pipeline {
-    agent any
-
-    environment {
-        AWS_ACCOUNT_ID = "604321082894"
-        AWS_DEFAULT_REGION = "us-east-1"
-        IMAGE_REPO_NAME = "laravel-api-base-image"
-        IMAGE_TAG = "latest"
-        REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}"
-    }
-
-    stages {
-        stage('Clean Up') {
-            steps {
-                script {
-                    echo "Cleaning up old Docker images and containers..."
-                    sh 'docker system prune -af'
-                }
-            }
-        }
-
-        stage('Logging into AWS ECR') {
-            steps {
-                script {
-                    echo "Logging into ECR..."
-                    sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}"
-                }
-            }
-        }
-
-        stage('Building image') {
-            steps {
-                script {
-                    echo "Building Docker image..."
-                    sh "docker build --no-cache -t ${IMAGE_REPO_NAME}:${IMAGE_TAG} ."
-                }
-            }
-        }
-
-        stage('Pushing to ECR') {
-            steps {
-                script {
-                    echo "Tagging Docker image..."
-                    sh "docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}"
-                    
-                    echo "Pushing Docker image to ECR..."
-                    sh "docker push ${REPOSITORY_URI}:${IMAGE_TAG}"
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            script {
-                echo "Cleaning up temporary files and Docker cache..."
-                sh 'docker system prune -af'
-            }
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Please check the logs for details.'
-        }
-    }
-}
+version: 0.2
+phases:
+  install:
+    on-failure: ABORT
+    runtime-versions:
+      php: 8.2
+  pre_build:
+    on-failure: ABORT
+    commands:
+      - echo 'Logging into Amazon ECR'
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $REPO
+  build:
+    on-failure: ABORT
+    commands:
+      - docker build -t $IMAGE .
+      - docker tag $IMAGE:$IMAGE_TAG $REPO/$IMAGE:$IMAGE_TAG
+  post_build:
+    on-failure: ABORT
+    commands:
+      - docker images ls -a
+      - docker push $REPO/$IMAGE:$IMAGE_TAG
