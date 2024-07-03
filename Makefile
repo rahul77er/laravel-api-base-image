@@ -8,3 +8,16 @@ CONTAINER_DATABASE=database
 help: ## Print help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
+auth:
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 604321082894.dkr.ecr.us-east-1.amazonaws.com
+
+build-push:
+	make build
+	make push
+	
+build:
+	docker build -t laravel-api-base-image .
+
+push:
+	docker tag laravel-api-base-image:latest 604321082894.dkr.ecr.us-east-1.amazonaws.com/laravel-api-base-image:latest
+	docker push 604321082894.dkr.ecr.us-east-1.amazonaws.com/laravel-api-base-image:latest
